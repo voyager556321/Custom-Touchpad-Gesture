@@ -6,14 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SLOT_TO_TRACK 2 // Відстеження третього пальця (slot 2)
-#define THRESHOLD 150   // Поріг для виявлення руху
+#define SLOT_TO_TRACK 2 // Tracking the third finger (slot 2)
+#define THRESHOLD 150   // Threshold for detecting movement
 
-// Функція ініціалізації uinput
+// Function to initialize uinput
 int setup_uinput_device() {
     int fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
     if (fd < 0) {
-        perror("Не вдалося відкрити /dev/uinput");
+        perror("Failed to open /dev/uinput");
         return -1;
     }
 
@@ -43,6 +43,7 @@ int setup_uinput_device() {
     return fd;
 }
 
+// Function to send a key event
 void send_key_event(int fd, int keycode, int value) {
     struct input_event ev;
     memset(&ev, 0, sizeof(ev));
@@ -57,6 +58,7 @@ void send_key_event(int fd, int keycode, int value) {
     write(fd, &ev, sizeof(ev));
 }
 
+// Function to simulate a keypress with a modifier key
 void simulate_keypress(int fd, int modifier_keycode, int keycode) {
     send_key_event(fd, modifier_keycode, 1);
     send_key_event(fd, keycode, 1);
@@ -73,7 +75,7 @@ int main() {
     const char *device = "/dev/input/event10";
     int fd = open(device, O_RDONLY);
     if (fd < 0) {
-        perror("Не вдалося відкрити пристрій");
+        perror("Failed to open device");
         return 1;
     }
 
@@ -83,7 +85,7 @@ int main() {
     int base_point[2] = {-1, -1};
     int current_point[2] = {-1, -1};
 
-    printf("Читаю події... (Натисніть CTRL+C для виходу)\n");
+    printf("Reading events... (Press CTRL+C to exit)\n");
 
     while (read(fd, &ev, sizeof(ev)) > 0) {
         if (ev.type == EV_ABS) {
@@ -100,7 +102,7 @@ int main() {
             if (base_point[0] == -1 && base_point[1] == -1) {
                 base_point[0] = slots[SLOT_TO_TRACK][0];
                 base_point[1] = slots[SLOT_TO_TRACK][1];
-                printf("Базова точка: X = %d, Y = %d\n", base_point[0], base_point[1]);
+                printf("Base point: X = %d, Y = %d\n", base_point[0], base_point[1]);
             }
 
             current_point[0] = slots[SLOT_TO_TRACK][0];
@@ -110,12 +112,12 @@ int main() {
             int delta_y = current_point[1] - base_point[1];
 
             if (delta_x > THRESHOLD && delta_y > THRESHOLD) {
-                printf("Рух вперед -> Ctrl + PgDn\n");
+                printf("Forward movement -> Ctrl + PgDn\n");
                 simulate_keypress(uinput_fd, KEY_LEFTCTRL, KEY_PAGEDOWN);
                 base_point[0] = current_point[0];
                 base_point[1] = current_point[1];
             } else if (delta_x < -THRESHOLD && delta_y < -THRESHOLD) {
-                printf("Рух назад -> Ctrl + PgUp\n");
+                printf("Backward movement -> Ctrl + PgUp\n");
                 simulate_keypress(uinput_fd, KEY_LEFTCTRL, KEY_PAGEUP);
                 base_point[0] = current_point[0];
                 base_point[1] = current_point[1];
