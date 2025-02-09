@@ -4,103 +4,78 @@
 #include <linux/uinput.h>
 #include <linux/input.h>
 #include <string.h>
+#include <stdlib.h>
 
-#define THRESHOLD 50  // Поріг для жесту
+#define ZONE_MIN_X 0       // Define the left edge zone
+#define ZONE_MAX_X 150     // Define the right edge zone
+#define SCREEN_BRIGHTNESS_PATH "/sys/class/backlight/intel_backlight/brightness"
+#define MAX_BRIGHTNESS_PATH "/sys/class/backlight/intel_backlight/max_brightness"
 
-// Глобальна змінна для координати Y
-int prev_y = -1; 
+// Define brightness range
+#define BRIGHTNESS_MIN 193
+#define BRIGHTNESS_MAX 19393
 
-// Налаштування uinput пристрою
-int setup_uinput_device() {
-    int fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
-    if (fd < 0) {
-        perror("Failed to open /dev/uinput");
-        return -1;
+// Define touchpad boundaries (adjust based on your device)
+#define TOUCHPAD_MIN_Y 0    // Upper position
+#define TOUCHPAD_MAX_Y 670 // Lower position (find actual max for your device)
+
+// Global variables
+int touch_x = -1;
+int touch_y = -1;
+
+// Set the screen brightness value
+void set_brightness(int brightness) {
+    FILE *fp = fopen(SCREEN_BRIGHTNESS_PATH, "w");
+    if (fp) {
+        fprintf(fp, "%d", brightness);
+        fclose(fp);
+    } else {
+        perror("Failed to set brightness");
     }
-
-    ioctl(fd, UI_SET_EVBIT, EV_KEY);
-    ioctl(fd, UI_SET_KEYBIT, KEY_BRIGHTNESSDOWN);
-    ioctl(fd, UI_SET_KEYBIT, KEY_BRIGHTNESSUP);
-
-    struct uinput_setup usetup;
-    memset(&usetup, 0, sizeof(usetup));
-    usetup.id.bustype = BUS_USB;
-    usetup.id.vendor = 0x1234;
-    usetup.id.product = 0x5678;
-    strcpy(usetup.name, "Virtual Brightness Controller");
-
-    if (ioctl(fd, UI_DEV_SETUP, &usetup) < 0 || ioctl(fd, UI_DEV_CREATE) < 0) {
-        perror("Failed to setup uinput device");
-        close(fd);
-        return -1;
-    }
-
-    return fd;
 }
 
-// Відправка події натискання клавіші
-void send_key_event(int fd, int keycode) {
-    struct input_event ev = { .type = EV_KEY, .code = keycode, .value = 1 };
-    write(fd, &ev, sizeof(ev));
+// Map touch Y-coordinate to brightness range
+int map_touch_to_brightness(int y) {
+    if (y < TOUCHPAD_MIN_Y) y = TOUCHPAD_MIN_Y;
+    if (y > TOUCHPAD_MAX_Y) y = TOUCHPAD_MAX_Y;
 
-    ev.value = 0;
-    write(fd, &ev, sizeof(ev));
-
-    ev.type = EV_SYN;
-    ev.code = SYN_REPORT;
-    ev.value = 0;
-    write(fd, &ev, sizeof(ev));
+    // Reverse mapping: lower Y means lower brightness, higher Y means higher brightness
+    return BRIGHTNESS_MIN + (BRIGHTNESS_MAX - BRIGHTNESS_MIN) * (y - TOUCHPAD_MIN_Y) / (TOUCHPAD_MAX_Y - TOUCHPAD_MIN_Y);
 }
 
-// Обробка координат Y
-void handle_abs_event(struct input_event *ev, int uinput_fd) {
-    if (ev->code == ABS_MT_POSITION_Y) {
-        int current_y = ev->value;
-        
-        if (prev_y != -1) {
-            int diff = current_y - prev_y;
+void handle_abs_event(struct input_event *ev) {
+    if (ev->code == ABS_MT_POSITION_X) {
+        touch_x = ev->value;
+    } else if (ev->code == ABS_MT_POSITION_Y) {
+        touch_y = ev->value;
 
-            if (diff > THRESHOLD) {
-                send_key_event(uinput_fd, KEY_BRIGHTNESSDOWN);
-                printf("Brightness Down\n");
-            } else if (diff < -THRESHOLD) {
-                send_key_event(uinput_fd, KEY_BRIGHTNESSUP);
-                printf("Brightness Up\n");
-            }
+        // Ensure gesture is within the work zone
+        if (touch_x >= ZONE_MIN_X && touch_x <= ZONE_MAX_X) {
+            int brightness = map_touch_to_brightness(touch_y);
+            set_brightness(brightness);
+            printf("Brightness: %d\n", brightness);
         }
-        prev_y = current_y;
     }
-}
-
-// Очищення ресурсів
-void cleanup(int fd, int uinput_fd) {
-    close(fd);
-    ioctl(uinput_fd, UI_DEV_DESTROY);
-    close(uinput_fd);
 }
 
 int main() {
-    int uinput_fd = setup_uinput_device();
-    if (uinput_fd < 0) return 1;
-
-    const char *device = "/dev/input/event9";  // Заміни на правильний шлях
+    const char *device = "/dev/input/event9";  // Change based on your device
     int fd = open(device, O_RDONLY);
     if (fd < 0) {
         perror("Failed to open input device");
-        cleanup(fd, uinput_fd);
         return 1;
     }
 
     struct input_event ev;
-    printf("Reading events... (Press CTRL+C to exit)\n");
+    printf("Reading events... (Swipe vertically to adjust brightness)\n");
 
     while (read(fd, &ev, sizeof(ev)) > 0) {
         if (ev.type == EV_ABS) {
-            handle_abs_event(&ev, uinput_fd);
+            handle_abs_event(&ev);
         }
     }
 
-    cleanup(fd, uinput_fd);
+    close(fd);
     return 0;
 }
 
