@@ -3,8 +3,6 @@ C_SOURCES =  custom-touchpad-gesture.c
 
 CC = gcc 
 
-CFLAGS +=
-
 .PHONY: custom-touchpad-gesture clean
 begin:
 	$(CC) -g $(C_SOURCES) -o $(TARGET)
