@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define SLOT_TO_TRACK 2 // Tracking the third finger (slot 2)
-#define THRESHOLD 30   // Threshold for gesture recognition
+#define THRESHOLD 50   // Threshold for gesture recognition
 #define MAX_SLOTS 3
 
 // Global variables for coordinates
@@ -148,4 +148,3 @@ int main() {
     cleanup(fd, uinput_fd);
     return 0;
 }
-
