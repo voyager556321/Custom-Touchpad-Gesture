@@ -5,17 +5,8 @@
  * Licensed under GNU GPLv3 or a commercial license.
  * Contact vovls5433@gmail.com for commercial licensing options.
  */
-#include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <linux/uinput.h>
-#include <linux/input.h>
-#include <stdlib.h>
-#include <string.h>
 
-#define SLOT_TO_TRACK 2 // Tracking the third finger (slot 2)
-#define THRESHOLD 50   // Threshold for gesture recognition
-#define MAX_SLOTS 3
+#include "custom-touchpad-gesture.h"
 
 // Global variables for coordinates
 int slots[MAX_SLOTS][2] = {{-1, -1}, {-1, -1}, {-1, -1}};
@@ -23,7 +14,7 @@ int base_point[2] = {-1, -1};
 int active_slot = 0;
 
 // Initialize uinput device
-int setup_uinput_device() {
+int setup_uinput_device(void) {
     int fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
     if (fd < 0) {
         perror("Failed to open /dev/uinput");
@@ -128,30 +119,4 @@ void cleanup(int fd, int uinput_fd) {
     close(fd);
     ioctl(uinput_fd, UI_DEV_DESTROY);
     close(uinput_fd);
-}
-
-int main() {
-    int uinput_fd = setup_uinput_device();
-    if (uinput_fd < 0) return 1;
-
-    const char *device = "/dev/input/event10";
-    int fd = open(device, O_RDONLY);
-    if (fd < 0) {
-        perror("Failed to open input device");
-        cleanup(fd, uinput_fd);
-        return 1;
-    }
-
-    struct input_event ev;
-    printf("Reading events... (Press CTRL+C to exit)\n");
-
-    while (read(fd, &ev, sizeof(ev)) > 0) {
-        if (ev.type == EV_ABS) {
-            handle_abs_event(&ev);
-        }
-        process_gesture(uinput_fd);
-    }
-
-    cleanup(fd, uinput_fd);
-    return 0;
 }
