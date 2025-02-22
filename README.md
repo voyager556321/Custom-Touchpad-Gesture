@@ -18,7 +18,7 @@ This project is available under **dual licensing**:
 - **GNU GPLv3** (for open source projects)
 - **Commercial License** (for commercial use)
 
-💡 If you would like to use this project in a commercial product, please [contact](mailto:vovls5433@gmail.com) .
+💡 If you would like to use this project in a commercial product, please [contact](mailto:vovls5433@gmail
 
 
 
