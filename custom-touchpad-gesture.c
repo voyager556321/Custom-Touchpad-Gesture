@@ -1,3 +1,10 @@
+/*
+ * Custom-Touchpad-Gesture
+ * Copyright (C) 2025 Vova Laskarzhevskyi
+ *
+ * Licensed under GNU GPLv3 or a commercial license.
+ * Contact vovls5433@gmail.com for commercial licensing options.
+ */
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
