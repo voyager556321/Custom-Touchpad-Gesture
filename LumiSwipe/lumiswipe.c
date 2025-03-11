@@ -148,25 +148,40 @@ void handle_key_event(struct input_event *ev) {
     }
 }
 
-int main() {
-    const char *device = "/dev/input/event10";  // Change based on your device
-    int fd = open(device, O_RDONLY);
-    if (fd < 0) {
-        perror("Failed to open input device");
-        return 1;
-    }
-
-    struct input_event ev;
-    printf("Reading events... (Swipe vertically to adjust brightness)\n");
-
-    while (read(fd, &ev, sizeof(ev)) > 0) {
-        if (ev.type == EV_ABS) {
-            handle_abs_event(&ev);
-        } else if (ev.type == EV_KEY) {
-            handle_key_event(&ev);
+int main(void) {
+        FILE *fp = popen("libinput list-devices | awk '/Touchpad/{getline; print $2}'", "r");
+        if (!fp) {
+                perror("popen failed");
+                return 1;
         }
-    }
+        char event[32];
+        if (!fgets(event, sizeof(event), fp)) {
+                perror("Failed to get event device");
+                fclose(fp);
+                return 1;
+        }
 
-    close(fd);
-    return 0;
+        event[strcspn(event, "\n")] = 0;
+
+        const char *device = event;
+        int fd = open(device, O_RDONLY);
+        if (fd < 0) {
+                perror("Failed to open input device");
+                return 1;
+        }
+
+        struct input_event ev;
+        printf("Reading events... (Swipe vertically to adjust brightness)\n");
+
+        while (read(fd, &ev, sizeof(ev)) > 0) {
+                if (ev.type == EV_ABS) {
+                        handle_abs_event(&ev);
+                } else if (ev.type == EV_KEY) {
+                        handle_key_event(&ev);
+                }
+        }
+
+        close(fd);
+        fclose(fp);
+        return 0;
 }
